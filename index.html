@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>连连看：浮岛冒险</title>
+  <style>
+    :root {
+      --primary: #7e47eb;
+      --primary-light: #a37df5;
+      --bg: #f6f6f8;
+      --card-bg: rgba(255, 255, 255, 0.8);
+      --text: #131118;
+      --text-light: #6b7280;
+      --font-size-base: clamp(12px, 1.5vw, 16px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      font-size: var(--font-size-base);
+    }
+
+    /* 布局容器 */
+    .app-container {
+      position: relative;
+      height: 100%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 背景装饰 */
+    .bg-decor {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      background: linear-gradient(135deg, #f6f6f8 0%, #e9e4f5 100%);
+    }
+    .cloud {
+      position: absolute;
+      fill: var(--primary);
+      opacity: 0.05;
+      animation: float 10s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.1); }
+    }
+
+    /* 屏幕切换 */
+    .screen {
+      display: none;
+      height: 100%;
+      width: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    /* 首页样式 */
+    .start-main {
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+    .title-area h1 {
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--primary);
+      font-style: italic;
+      line-height: 0.9;
+      margin-bottom: 0.5rem;
+      letter-spacing: -2px;
+    }
+    .title-area p {
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      font-weight: 700;
+      color: var(--text-light);
+      font-size: 0.8rem;
+    }
+    .best-score-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 2rem;
+      padding: 2rem;
+      margin: 3rem 0;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+      border: 1px solid white;
+    }
+    .btn-start {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 1.2rem 3rem;
+      border-radius: 1.2rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 10px 20px rgba(126, 71, 235, 0.3);
+      transition: transform 0.2s;
+    }
+    .btn-start:active { transform: scale(0.95); }
+
+    /* 游戏界面 */
+    .game-header {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem;
+      z-index: 10;
+    }
+    .back-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .timer-container {
+      flex: 1;
+      max-width: 500px;
+    }
+    .progress-bar {
+      height: 12px;
+      background: rgba(126, 71, 235, 0.1);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      width: 100%;
+      transition: width 1s linear;
+    }
+    .score-badge {
+      background: white;
+      padding: 0.5rem 1.2rem;
+      border-radius: 1rem;
+      font-weight: 800;
+      color: var(--primary);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+
+    /* 游戏网格 */
+    .grid-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 0;
+      position: relative;
+    }
+    #game-grid {
+      display: grid;
+      background: rgba(255,255,255,0.4);
+      padding: 8px;
+      border-radius: 1.5rem;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+      border: 4px solid white;
+      gap: 4px;
+      position: relative;
+    }
+    .tile {
+      background: white;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid #f0f0f0;
+      aspect-ratio: 1/1;
+    }
+    .tile.selected {
+      border: 3px solid var(--primary);
+      background: rgba(126, 71, 235, 0.05);
+      transform: scale(1.05);
+      z-index: 5;
+    }
+    .tile.hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .tile svg {
+      width: 80%;
+      height: 80%;
+    }
+
+    /* 路径画布 */
+    #path-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* 底部已去除 */
+
+    /* 移动端微调 */
+    @media (max-width: 600px) {
+      .title-area h1 { font-size: 3rem; }
+      #game-grid { gap: 2px; padding: 4px; }
+      .tile { border-radius: 4px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <div class="bg-decor" id="bg-decor"></div>
+
+    <!-- 首页 -->
+    <div id="start-screen" class="screen active">
+      <div class="start-main">
+        <div class="title-area">
+          <h1>LINK LINK</h1>
+          <p>FLOATING ISLANDS</p>
+        </div>
+        <div class="best-score-card">
+          <div style="color: var(--text-light); font-size: 0.7rem; font-weight: 800; letter-spacing: 2px;">PERSONAL BEST</div>
+          <div id="best-score-val" style="font-size: 3rem; font-weight: 900; margin: 0.5rem 0;">0</div>
+          <div style="color: var(--primary); display: flex; justify-content: center; gap: 4px;">
+            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+          </div>
+        </div>
+        <button class="btn-start" onclick="startGame()">开始游戏</button>
+      </div>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="game-screen" class="screen">
+      <header class="game-header">
+        <button class="back-btn" onclick="backToMenu()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <div class="timer-container">
+          <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 800; color: var(--primary);">
+            <span>TIME LEFT</span>
+            <span id="timer-text">02:00</span>
+          </div>
+          <div class="progress-bar">
+            <div id="timer-fill" class="progress-fill"></div>
+          </div>
+        </div>
+        <div class="score-badge" id="current-score">0</div>
+      </header>
+
+      <div class="grid-container">
+        <div id="game-grid"></div>
+        <canvas id="path-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 资源：本地 SVG 图标 ---
+    const ICONS = [
+      `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="#ff5e57"/></svg>`,
+      `<svg viewBox="0 0 100 100"><rect x="20" y="20" width="60" height="60" rx="10" fill="#1e90ff"/></svg>`,
+      `<svg viewBox="0 0 100 100"><polygon points="50,15 90,85 10,85" fill="#ffa502"/></svg>`,
+      `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="35" fill="#2ed573"/><circle cx="50" cy="50" r="15" fill="white"/></svg>`,
+      `<svg viewBox="0 0 100 100"><path d="M50 20 L80 50 L50 80 L20 50 Z" fill="#747d8c"/></svg>`,
+      `<svg viewBox="0 0 100 100"><circle cx="30" cy="30" r="20" fill="#5352ed"/><circle cx="70" cy="70" r="20" fill="#5352ed"/></svg>`,
+      `<svg viewBox="0 0 100 100"><path d="M20 20 H80 V80 H20 Z" fill="none" stroke="#ff4757" stroke-width="12"/></svg>`,
+      `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="50" rx="40" ry="20" fill="#eccc68"/></svg>`,
+      `<svg viewBox="0 0 100 100"><path d="M50 10 A40 40 0 1 0 50 90 A40 40 0 1 0 50 10 Z" fill="#7bed9f" opacity="0.8"/></svg>`,
+      `<svg viewBox="0 0 100 100"><rect x="10" y="40" width="80" height="20" fill="#ff7f50"/></svg>`,
+      `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="#a4b0be" stroke="#2f3542" stroke-width="5"/></svg>`,
+      `<svg viewBox="0 0 100 100"><path d="M10 10 L90 90 M90 10 L10 90" stroke="#57606f" stroke-width="15" stroke-linecap="round"/></svg>`,
+    ];
+
+    // --- 配置 ---
+    const ROWS = 8;
+    const COLS = 12;
+    const GAME_TIME = 120; // 秒
+
+    let state = {
+      score: 0,
+      bestScore: localStorage.getItem('bestScore') || 0,
+      timeLeft: GAME_TIME,
+      tiles: [],
+      selected: null,
+      timer: null
+    };
+
+    // --- 核心逻辑 ---
+
+    function initGame() {
+      const grid = document.getElementById('game-grid');
+      grid.innerHTML = '';
+      
+      // 生成配对数据
+      const total = ROWS * COLS;
+      const pairs = total / 2;
+      let types = [];
+      for(let i=0; i<pairs; i++) {
+        const type = Math.floor(Math.random() * ICONS.length);
+        types.push(type, type);
+      }
+      types.sort(() => Math.random() - 0.5);
+
+      state.tiles = [];
+      grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+
+      for(let r=0; r<ROWS; r++) {
+        for(let c=0; c<COLS; c++) {
+          const typeIdx = types[r * COLS + c];
+          const tile = {
+            id: `${r}-${c}`,
+            r, c,
+            type: typeIdx,
+            visible: true,
+            el: null
+          };
+
+          const el = document.createElement('div');
+          el.className = 'tile';
+          el.innerHTML = ICONS[typeIdx];
+          el.onclick = () => handleTileClick(tile);
+          tile.el = el;
+          
+          grid.appendChild(el);
+          state.tiles.push(tile);
+        }
+      }
+      updateLayout();
+    }
+
+    function handleTileClick(tile) {
+      if (!tile.visible) return;
+
+      if (!state.selected) {
+        state.selected = tile;
+        tile.el.classList.add('selected');
+      } else if (state.selected.id === tile.id) {
+        state.selected.el.classList.remove('selected');
+        state.selected = null;
+      } else {
+        if (state.selected.type === tile.type) {
+          const path = findPath(state.selected, tile);
+          if (path) {
+            drawPath(path);
+            const s1 = state.selected;
+            const s2 = tile;
+            setTimeout(() => {
+              s1.visible = false;
+              s2.visible = false;
+              s1.el.classList.add('hidden');
+              s2.el.classList.add('hidden');
+              addScore(100);
+              checkWin();
+            }, 200);
+            state.selected.el.classList.remove('selected');
+            state.selected = null;
+          } else {
+            state.selected.el.classList.remove('selected');
+            state.selected = tile;
+            tile.el.classList.add('selected');
+          }
+        } else {
+          state.selected.el.classList.remove('selected');
+          state.selected = tile;
+          tile.el.classList.add('selected');
+        }
+      }
+    }
+
+    // BFS 寻路算法 (最多两个拐点)
+    function findPath(p1, p2) {
+      const queue = [{ r: p1.r, c: p1.c, dir: -1, turns: 0, path: [[p1.r, p1.c]] }];
+      const visited = new Map();
+
+      while (queue.length > 0) {
+        const curr = queue.shift();
+
+        if (curr.turns > 2) continue;
+        if (curr.r === p2.r && curr.c === p2.c) return curr.path;
+
+        const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
+        for (let i=0; i<4; i++) {
+          const nr = curr.r + dirs[i][0];
+          const nc = curr.c + dirs[i][1];
+
+          if (nr >= -1 && nr <= ROWS && nc >= -1 && nc <= COLS) {
+            const tileAt = state.tiles.find(t => t.r === nr && t.c === nc);
+            const isBlocked = tileAt && tileAt.visible && !(nr === p2.r && nc === p2.c);
+            
+            if (!isBlocked) {
+              const nextTurns = (curr.dir === -1 || curr.dir === i) ? curr.turns : curr.turns + 1;
+              const key = `${nr},${nc},${i}`;
+              if (!visited.has(key) || visited.get(key) > nextTurns) {
+                visited.set(key, nextTurns);
+                queue.push({
+                  r: nr, c: nc,
+                  dir: i,
+                  turns: nextTurns,
+                  path: [...curr.path, [nr, nc]]
+                });
+              }
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function drawPath(path) {
+      const canvas = document.getElementById('path-canvas');
+      const ctx = canvas.getContext('2d');
+      const grid = document.getElementById('game-grid');
+      const rect = grid.getBoundingClientRect();
+      
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+
+      const cellW = rect.width / COLS;
+      const cellH = rect.height / ROWS;
+
+      ctx.strokeStyle = '#7e47eb';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+
+      path.forEach((p, i) => {
+        const x = (p[1] + 0.5) * cellW;
+        const y = (p[0] + 0.5) * cellH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+
+      ctx.stroke();
+      setTimeout(() => ctx.clearRect(0, 0, canvas.width, canvas.height), 300);
+    }
+
+    // --- UI 控制 ---
+
+    function startGame() {
+      state.score = 0;
+      state.timeLeft = GAME_TIME;
+      state.selected = null;
+      document.getElementById('current-score').innerText = '0';
+      document.getElementById('start-screen').classList.remove('active');
+      document.getElementById('game-screen').classList.add('active');
+      initGame();
+      startTimer();
+    }
+
+    function backToMenu() {
+      clearInterval(state.timer);
+      document.getElementById('game-screen').classList.remove('active');
+      document.getElementById('start-screen').classList.add('active');
+      updateStats();
+    }
+
+    function startTimer() {
+      clearInterval(state.timer);
+      state.timer = setInterval(() => {
+        state.timeLeft--;
+        updateTimerUI();
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timer);
+          alert('游戏结束！得分：' + state.score);
+          backToMenu();
+        }
+      }, 1000);
+      updateTimerUI();
+    }
+
+    function updateTimerUI() {
+      const m = Math.floor(state.timeLeft / 60).toString().padStart(2, '0');
+      const s = (state.timeLeft % 60).toString().padStart(2, '0');
+      document.getElementById('timer-text').innerText = `${m}:${s}`;
+      document.getElementById('timer-fill').style.width = `${(state.timeLeft / GAME_TIME) * 100}%`;
+    }
+
+    function addScore(val) {
+      state.score += val;
+      document.getElementById('current-score').innerText = state.score.toLocaleString();
+    }
+
+    function checkWin() {
+      if (state.tiles.every(t => !t.visible)) {
+        clearInterval(state.timer);
+        const bonus = state.timeLeft * 50;
+        alert(`恭喜通关！剩余时间奖分：${bonus}\n总分：${state.score + bonus}`);
+        state.score += bonus;
+        backToMenu();
+      }
+    }
+
+    function updateStats() {
+      if (state.score > state.bestScore) {
+        state.bestScore = state.score;
+        localStorage.setItem('bestScore', state.bestScore);
+      }
+      document.getElementById('best-score-val').innerText = state.bestScore.toLocaleString();
+    }
+
+    // 动态调整网格大小以适配所有屏幕
+    function updateLayout() {
+      const grid = document.getElementById('game-grid');
+      const container = document.querySelector('.grid-container');
+      const cw = container.clientWidth * 0.95;
+      const ch = container.clientHeight * 0.95;
+
+      // 保持长宽比
+      const ratio = COLS / ROWS;
+      let w, h;
+      if (cw / ch > ratio) {
+        h = ch;
+        w = h * ratio;
+      } else {
+        w = cw;
+        h = w / ratio;
+      }
+
+      grid.style.width = `${w}px`;
+      grid.style.height = `${h}px`;
+    }
+
+    window.onresize = updateLayout;
+    updateStats();
+
+    // 绘制装饰背景云
+    function createDecor() {
+      const container = document.getElementById('bg-decor');
+      for(let i=0; i<5; i++) {
+        const cloud = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        cloud.setAttribute("viewBox", "0 0 24 24");
+        cloud.setAttribute("class", "cloud");
+        cloud.innerHTML = `<path d="M17.5,19c-3.037,0-5.5-2.463-5.5-5.5c0-0.038,0.002-0.076,0.005-0.113C10.686,12.466,9.38,12,8,12 c-2.209,0-4,1.791-4,4c0,2.209,1.791,4,4,4h9.5c1.381,0,2.5-1.119,2.5-2.5S18.881,15,17.5,15c-0.18,0-0.354,0.02-0.522,0.056 C16.99,15.019,17,15.009,17,15C17,12.791,15.209,11,13,11c-1.105,0-2.105,0.447-2.828,1.172C10.062,11.459,10,10.743,10,10 c0-2.209,1.791-4,4-4c1.105,0,2.105,0.447,2.828,1.172C17.553,6.447,18.553,6,19.66,6C21.46,6,23,7.54,23,9.34 c0,0.301-0.041,0.592-0.117,0.87C23.541,10.66,24,11.275,24,12C24,13.105,23.105,14,22,14c-0.18,0-0.354-0.02-0.522-0.056 C21.144,15.75,19.467,17,17.5,19z"/>`;
+        cloud.style.top = Math.random() * 80 + '%';
+        cloud.style.left = Math.random() * 80 + '%';
+        cloud.style.width = (Math.random() * 100 + 100) + 'px';
+        cloud.style.animationDelay = (Math.random() * 5) + 's';
+        container.appendChild(cloud);
+      }
+    }
+    createDecor();
+
+  </script>
+</body>
+</html>
